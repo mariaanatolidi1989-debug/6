@@ -1,0 +1,249 @@
+
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft — Світ дробів</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;font-family:Arial,sans-serif;color:#fff;
+ background:linear-gradient(#69b8e8 0 35%,#4c913b 35% 55%,#60452d 55%);
+ min-height:100vh;padding:20px
+}
+.game{max-width:850px;margin:auto;text-align:center}
+h1{font-size:clamp(26px,5vw,44px);text-shadow:3px 4px #333}
+.panel{
+ background:#343b35;border:6px solid #222;
+ box-shadow:0 7px #171717;padding:22px;margin:18px auto;
+ max-width:680px
+}
+.blocks{font-size:36px;letter-spacing:5px;margin:12px}
+.stats{display:flex;justify-content:space-around;flex-wrap:wrap;gap:12px}
+.stat{background:#202820;padding:12px;border:3px solid #777}
+button,input{
+ font-size:18px;padding:13px;margin:8px;
+ border:3px solid #222;border-radius:3px
+}
+button{
+ background:#71b846;color:#fff;font-weight:bold;
+ cursor:pointer;box-shadow:0 4px #315c23
+}
+button:hover{background:#8bd35b}
+button:disabled{opacity:.5;cursor:not-allowed}
+input{width:210px;text-align:center}
+.hidden{display:none}
+#question{font-size:25px;line-height:1.5;margin:20px 0}
+#feedback{font-size:20px;min-height:35px;font-weight:bold}
+.progress{height:20px;background:#222;margin:15px 0}
+#bar{height:100%;width:0;background:#70cf45;transition:.3s}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.level{background:#56624c;padding:12px;border:3px solid #222}
+.small{font-size:14px;color:#ddd}
+</style>
+</head>
+<body>
+<div class="game">
+<h1>⛏️ MINECRAFT: СВІТ ДРОБІВ</h1>
+<div class="blocks">🟩 🟫 🟩 💎 🟫 🟩</div>
+
+<div class="panel">
+ <div class="stats">
+  <div class="stat">💎 Бали: <b id="score">0</b></div>
+  <div class="stat">❤️ Життя: <b id="lives">5</b></div>
+  <div class="stat">🏆 Рівень: <b id="level">1</b>/5</div>
+ </div>
+ <div class="progress"><div id="bar"></div></div>
+ <p id="progressText">Почни свою математичну пригоду!</p>
+</div>
+
+<div class="panel" id="start">
+ <h2>🌍 Ласкаво просимо до світу дробів!</h2>
+ <p>На тебе чекають 5 математичних випробувань.</p>
+ <p>Розв'язуй приклади, збирай діаманти та відкривай нові світи!</p>
+ <div class="blocks">🧱 🧑‍🚀 💎 🧱</div>
+ <button onclick="begin()">ПОЧАТИ ГРУ ▶</button>
+</div>
+
+<div class="panel hidden" id="game">
+ <h2 id="levelName"></h2>
+ <div class="blocks" id="scene">🌳 🧱 💎 🧱</div>
+ <p id="question"></p>
+ <input id="answer" placeholder="Наприклад: 3/4"
+        autocomplete="off">
+ <br>
+ <button id="check" onclick="checkAnswer()">ПЕРЕВІРИТИ ✔</button>
+ <div id="feedback"></div>
+ <button id="next" class="hidden" onclick="nextTask()">НАСТУПНЕ ЗАВДАННЯ ➜</button>
+ <p class="small">Відповідь вводь звичайним дробом a/b або цілим числом.</p>
+</div>
+
+<div class="panel hidden" id="finish">
+ <h2>🏆 ПРИГОДУ ЗАВЕРШЕНО!</h2>
+ <div class="blocks">🏆 💎 🏆</div>
+ <h2 id="result"></h2>
+ <p id="resultText"></p>
+ <button onclick="location.reload()">ГРАТИ ЩЕ РАЗ ↻</button>
+</div>
+</div>
+
+<script>
+const levels=[
+ {name:"Рівень 1. Множення дробів",scene:"🌲 🧱 💎 🌲",
+  task:()=>product(false)},
+ {name:"Рівень 2. Ділення дробів",scene:"🪨 💎 🧱 🪨",
+  task:()=>divide(false)},
+ {name:"Рівень 3. Мішані числа",scene:"🏠 🧱 💎 🏠",
+  task:()=>Math.random()<.5?product(true):divide(true)},
+ {name:"Рівень 4. Дріб від числа",scene:"🌾 🪵 💎 🌾",
+  task:()=>fractionOf()},
+ {name:"Рівень 5. Число за значенням дробу",scene:"🏰 💎 🏆 🏰",
+  task:()=>findNumber()}
+];
+
+let score=0,lives=5,level=0,taskNo=0,current=null;
+const total=25;
+
+function rand(min,max){
+ return Math.floor(Math.random()*(max-min+1))+min;
+}
+function gcd(a,b){
+ return b===0?Math.abs(a):gcd(b,a%b);
+}
+function R(n,d=1){
+ if(d<0){n=-n;d=-d}
+ let g=gcd(n,d);
+ return {n:n/g,d:d/g};
+}
+function mul(a,b){return R(a.n*b.n,a.d*b.d)}
+function div(a,b){return R(a.n*b.d,a.d*b.n)}
+function show(a){
+ return a.d===1?String(a.n):a.n+"/"+a.d;
+}
+function mixed(a){
+ let whole=Math.floor(a.n/a.d);
+ let rem=a.n%a.d;
+ return rem===0?String(whole):
+ (whole===0?show(a):whole+" "+rem+"/"+a.d);
+}
+function product(m){
+ let a=R(rand(1,5),rand(2,7));
+ let b=R(rand(1,5),rand(2,7));
+ if(m){
+  a=R(rand(1,3)*rand(2,4)+rand(1,3),rand(2,5));
+  b=R(rand(1,2)*rand(2,4)+rand(1,3),rand(2,5));
+ }
+ return {q:`${mixed(a)} × ${mixed(b)} = ?`,
+         ans:mul(a,b)};
+}
+function divide(m){
+ let a=R(rand(1,5),rand(2,6));
+ let b=R(rand(1,5),rand(2,6));
+ if(m){
+  a=R(rand(5,15),rand(2,5));
+  b=R(rand(5,12),rand(2,5));
+ }
+ return {q:`${mixed(a)} : ${mixed(b)} = ?`,
+         ans:div(a,b)};
+}
+function fractionOf(){
+ let d=rand(2,6),n=rand(1,d-1),k=rand(2,12);
+ let number=d*k;
+ return {q:`Знайди ${n}/${d} від числа ${number}.`,
+         ans:R(n*k)};
+}
+function findNumber(){
+ let d=rand(2,6),n=rand(1,d-1),k=rand(2,12);
+ let value=n*k;
+ return {q:`${n}/${d} числа дорівнює ${value}. Знайди число.`,
+         ans:R(d*k)};
+}
+function begin(){
+ document.getElementById("start").classList.add("hidden");
+ document.getElementById("game").classList.remove("hidden");
+ loadTask();
+}
+function loadTask(){
+ current=levels[level].task();
+ document.getElementById("levelName").textContent=levels[level].name;
+ document.getElementById("scene").textContent=levels[level].scene;
+ document.getElementById("question").textContent=current.q;
+ document.getElementById("answer").value="";
+ document.getElementById("feedback").textContent="";
+ document.getElementById("check").classList.remove("hidden");
+ document.getElementById("next").classList.add("hidden");
+ document.getElementById("answer").disabled=false;
+ document.getElementById("answer").focus();
+ updateStats();
+}
+function parseAnswer(s){
+ s=s.trim().replace(/\s/g,"");
+ let p=s.split("/");
+ if(p.length===1){
+  let n=Number(p[0]);
+  if(!Number.isInteger(n))return null;
+  return R(n);
+ }
+ if(p.length!==2)return null;
+ let n=Number(p[0]),d=Number(p[1]);
+ if(!Number.isInteger(n)||!Number.isInteger(d)||d===0)return null;
+ return R(n,d);
+}
+function checkAnswer(){
+ let a=parseAnswer(document.getElementById("answer").value);
+ let f=document.getElementById("feedback");
+ if(!a){
+  f.textContent="⚠️ Введи відповідь у форматі 3/4 або 2.";
+  return;
+ }
+ let ok=a.n===current.ans.n&&a.d===current.ans.d;
+ if(ok){
+  score+=10;
+  f.textContent="✅ Правильно! +10 діамантів!";
+  f.style.color="#8df36b";
+ }else{
+  lives--;
+  f.textContent="❌ Не зовсім! Правильна відповідь: "+show(current.ans);
+  f.style.color="#ff9999";
+ }
+ document.getElementById("check").classList.add("hidden");
+ document.getElementById("next").classList.remove("hidden");
+ document.getElementById("answer").disabled=true;
+ updateStats();
+}
+function nextTask(){
+ taskNo++;
+ if(lives<=0){finish(false);return}
+ if(taskNo>=5){
+  level++;
+  taskNo=0;
+  if(level>=5){finish(true);return}
+ }
+ loadTask();
+}
+function updateStats(){
+ document.getElementById("score").textContent=score;
+ document.getElementById("lives").textContent=lives;
+ document.getElementById("level").textContent=Math.min(level+1,5);
+ let done=level*5+taskNo;
+ document.getElementById("bar").style.width=(done/total*100)+"%";
+ document.getElementById("progressText").textContent=
+ "Виконано завдань: "+done+" із "+total;
+}
+function finish(won){
+ document.getElementById("game").classList.add("hidden");
+ document.getElementById("finish").classList.remove("hidden");
+ document.getElementById("result").textContent=
+ score+" діамантів 💎";
+ document.getElementById("resultText").textContent=won?
+ "Вітаємо! Ти пройшов усі 5 рівнів і став Майстром дробів!":
+ "Життя закінчилися. Спробуй ще раз і підкорюй світ дробів!";
+}
+document.getElementById("answer").addEventListener("keydown",e=>{
+ if(e.key==="Enter"&&!document.getElementById("check").classList.contains("hidden"))
+ checkAnswer();
+});
+</script>
+</body>
+</html>
